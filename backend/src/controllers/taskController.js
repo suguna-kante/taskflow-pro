@@ -28,9 +28,9 @@ async function attachTags(taskId, tagIds) {
 const TASK_SELECT = `
   SELECT
     t.id, t.title, t.description, t.status, t.priority,
-    t.deadline, t."order", t.project_id AS project,
+    t.due_date, t."order", t.project_id AS project,
     t.completed_at, t.created_at, t.updated_at,
-    t.deadline < CURRENT_DATE AND t.status != 'done' AS is_overdue,
+    t.due_date < CURRENT_DATE AND t.status != 'done' AS is_overdue,
     COALESCE(
       (SELECT json_agg(tg.name ORDER BY tg.name)
        FROM task_tags tt JOIN tags tg ON tg.id = tt.tag_id
@@ -41,7 +41,7 @@ const TASK_SELECT = `
     u.username AS owner_username
   FROM tasks t
   LEFT JOIN projects p ON p.id = t.project_id
-  LEFT JOIN users u ON u.id = t.owner_id
+  LEFT JOIN users u ON u.id = t.user_id
 `;
 
 // ── GET /api/tasks ────────────────────────────────────────────────
@@ -49,12 +49,13 @@ exports.list = async (req, res) => {
   const uid = req.user.id;
   const { status, priority, project, search, ordering = 'created_at', page = 1, page_size = 25 } = req.query;
 
-  const conditions = ['t.owner_id = $1'];
+  const conditions = ['t.user_id = $1'];
   const vals = [uid];
   let i = 2;
 
   if (status)   { conditions.push(`t.status = $${i++}`);       vals.push(status); }
   if (priority) { conditions.push(`t.priority = $${i++}`);     vals.push(priority); }
+
   if (project)  { conditions.push(`t.project_id = $${i++}`);   vals.push(project); }
   if (search)   {
     conditions.push(`(t.title ILIKE $${i} OR t.description ILIKE $${i})`);
@@ -62,7 +63,7 @@ exports.list = async (req, res) => {
   }
 
   const where = 'WHERE ' + conditions.join(' AND ');
-  const allowedOrdering = { created_at: 't.created_at DESC', deadline: 't.deadline ASC NULLS LAST', priority: "CASE t.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END", title: 't.title ASC', order: 't."order" ASC' };
+  const allowedOrdering = { created_at: 't.created_at DESC', due_date: 't.due_date ASC NULLS LAST', priority: "CASE t.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END", title: 't.title ASC', order: 't."order" ASC' };
   const orderClause = allowedOrdering[ordering] || 't.created_at DESC';
 
   const offset = (parseInt(page) - 1) * parseInt(page_size);
@@ -79,13 +80,13 @@ exports.list = async (req, res) => {
 
 // ── POST /api/tasks ───────────────────────────────────────────────
 exports.create = async (req, res) => {
-  const { title, description = '', status = 'todo', priority = 'medium', deadline = null, order = 0, project = null, tags = [] } = req.body;
+  const { title, description = '', status = 'todo', priority = 'medium', due_date = null, order = 0, project = null, tags = [] } = req.body;
   if (!title) return res.status(400).json({ error: 'title is required.' });
 
   const { rows } = await pool.query(
-    `INSERT INTO tasks (title, description, status, priority, deadline, "order", owner_id, project_id)
+    `INSERT INTO tasks (title, description, status, priority, due_date, "order", user_id, project_id)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
-    [title, description, status, priority, deadline || null, order, req.user.id, project || null]
+    [title, description, status, priority, due_date || null, order, req.user.id, project || null]
   );
   const taskId = rows[0].id;
   if (tags.length) await attachTags(taskId, await getTagIds(tags));
@@ -97,7 +98,7 @@ exports.create = async (req, res) => {
 // ── GET /api/tasks/:id ────────────────────────────────────────────
 exports.get = async (req, res) => {
   const { rows } = await pool.query(
-    `${TASK_SELECT} WHERE t.id = $1 AND t.owner_id = $2`,
+    `${TASK_SELECT} WHERE t.id = $1 AND t.user_id = $2`,
     [req.params.id, req.user.id]
   );
   if (!rows.length) return res.status(404).json({ error: 'Task not found.' });
@@ -106,9 +107,9 @@ exports.get = async (req, res) => {
 
 // ── PUT /api/tasks/:id ────────────────────────────────────────────
 exports.update = async (req, res) => {
-  const { title, description, status, priority, deadline, order, project, tags } = req.body;
+  const { title, description, status, priority, due_date, order, project, tags } = req.body;
 
-  const existing = await pool.query('SELECT * FROM tasks WHERE id=$1 AND owner_id=$2', [req.params.id, req.user.id]);
+  const existing = await pool.query('SELECT * FROM tasks WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
   if (!existing.rows.length) return res.status(404).json({ error: 'Task not found.' });
 
   const t = existing.rows[0];
@@ -120,14 +121,14 @@ exports.update = async (req, res) => {
   await pool.query(
     `UPDATE tasks SET
        title=$1, description=$2, status=$3, priority=$4,
-       deadline=$5, "order"=$6, project_id=$7, completed_at=$8, updated_at=NOW()
+       due_date=$5, "order"=$6, project_id=$7, completed_at=$8, updated_at=NOW()
      WHERE id=$9`,
     [
       title        ?? t.title,
       description  ?? t.description,
       newStatus,
       priority     ?? t.priority,
-      deadline !== undefined ? (deadline || null) : t.deadline,
+      due_date !== undefined ? (due_date || null) : t.due_date,
       order        ?? t.order,
       project !== undefined ? (project || null) : t.project_id,
       completedAt,
@@ -146,7 +147,7 @@ exports.patch = exports.update;
 // ── DELETE /api/tasks/:id ─────────────────────────────────────────
 exports.remove = async (req, res) => {
   const { rowCount } = await pool.query(
-    'DELETE FROM tasks WHERE id=$1 AND owner_id=$2',
+    'DELETE FROM tasks WHERE id=$1 AND user_id=$2',
     [req.params.id, req.user.id]
   );
   if (!rowCount) return res.status(404).json({ error: 'Task not found.' });
@@ -159,7 +160,7 @@ exports.move = async (req, res) => {
   const valid = ['todo','inprogress','inreview','done'];
   if (!valid.includes(status)) return res.status(400).json({ error: `Invalid status: ${status}` });
 
-  const existing = await pool.query('SELECT * FROM tasks WHERE id=$1 AND owner_id=$2', [req.params.id, req.user.id]);
+  const existing = await pool.query('SELECT * FROM tasks WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
   if (!existing.rows.length) return res.status(404).json({ error: 'Task not found.' });
 
   let completedAt = existing.rows[0].completed_at;
@@ -187,10 +188,10 @@ exports.stats = async (req, res) => {
        COUNT(*) FILTER (WHERE priority='high')                         AS high,
        COUNT(*) FILTER (WHERE priority='medium')                       AS medium,
        COUNT(*) FILTER (WHERE priority='low')                          AS low,
-       COUNT(*) FILTER (WHERE deadline < CURRENT_DATE AND status!='done') AS overdue,
-       COUNT(*) FILTER (WHERE deadline = CURRENT_DATE AND status!='done') AS due_today,
+       COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status!='done') AS overdue,
+       COUNT(*) FILTER (WHERE due_date = CURRENT_DATE AND status!='done') AS due_today,
        COUNT(*) FILTER (WHERE status='done' AND completed_at > NOW()-INTERVAL '7 days') AS completed_this_week
-     FROM tasks WHERE owner_id = $1`,
+     FROM tasks WHERE user_id = $1`,
     [uid]
   );
   const r = rows[0];
@@ -207,8 +208,8 @@ exports.stats = async (req, res) => {
 // ── GET /api/tasks/overdue ────────────────────────────────────────
 exports.overdue = async (req, res) => {
   const { rows } = await pool.query(
-    `${TASK_SELECT} WHERE t.owner_id=$1 AND t.deadline < CURRENT_DATE AND t.status != 'done'
-     ORDER BY t.deadline ASC`,
+    `${TASK_SELECT} WHERE t.user_id=$1 AND t.due_date < CURRENT_DATE AND t.status != 'done'
+     ORDER BY t.due_date ASC`,
     [req.user.id]
   );
   res.json(rows);
@@ -217,13 +218,13 @@ exports.overdue = async (req, res) => {
 // ── GET /api/tasks/export ─────────────────────────────────────────
 exports.exportCSV = async (req, res) => {
   const { rows } = await pool.query(
-    `${TASK_SELECT} WHERE t.owner_id = $1 ORDER BY t.created_at DESC`,
+    `${TASK_SELECT} WHERE t.user_id = $1 ORDER BY t.created_at DESC`,
     [req.user.id]
   );
-  const header = 'ID,Title,Status,Priority,Deadline,Tags,Project,Created\n';
+  const header = 'ID,Title,Status,Priority,due_date,Tags,Project,Created\n';
   const body = rows.map(t =>
     [t.id, `"${t.title}"`, t.status, t.priority,
-     t.deadline || '', (t.tags || []).join('|'),
+     t.due_date || '', (t.tags || []).join('|'),
      t.project_name || '', t.created_at?.toISOString().slice(0,10)
     ].join(',')
   ).join('\n');

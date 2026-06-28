@@ -35,23 +35,64 @@ exports.register = async (req, res) => {
 
 exports.login = async (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password)
-    return res.status(400).json({ error: 'username and password are required.' });
+
+  if (!username || !password) {
+    return res.status(400).json({
+      error: "username and password are required."
+    });
+  }
 
   try {
-    const { rows } = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-    const user = rows[0];
-    if (!user || !(await bcrypt.compare(password, user.password)))
-      return res.status(401).json({ error: 'Invalid credentials.' });
+    const { rows } = await pool.query(
+      "SELECT * FROM users WHERE username = $1",
+      [username]
+    );
 
-    const access  = signAccess(user.id);
+    console.log("Rows:", rows);
+
+    const user = rows[0];
+
+    if (!user) {
+      console.log("❌ User not found");
+      return res.status(401).json({
+        error: "Invalid credentials."
+      });
+    }
+
+    console.log("Entered Password:", password);
+    console.log("Stored Hash:", user.password);
+
+    const match = await bcrypt.compare(password, user.password);
+
+    console.log("Password Match:", match);
+
+    if (!match) {
+      return res.status(401).json({
+        error: "Invalid credentials."
+      });
+    }
+
+    const access = signAccess(user.id);
     const refresh = signRefresh(user.id);
-    await pool.query('INSERT INTO refresh_tokens (user_id, token) VALUES ($1,$2)', [user.id, refresh]);
+
+    await pool.query(
+      "INSERT INTO refresh_tokens (user_id, token) VALUES ($1,$2)",
+      [user.id, refresh]
+    );
+
     const { password: _, ...safe } = user;
-    res.json({ access, refresh, user: safe });
+
+    res.json({
+      access,
+      refresh,
+      user: safe
+    });
+
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Login failed.' });
+    res.status(500).json({
+      error: "Login failed."
+    });
   }
 };
 

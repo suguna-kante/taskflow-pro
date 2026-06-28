@@ -1,17 +1,30 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTask } from '../context/TaskContext';
 import { useAuth } from '../context/AuthContext';
 import Topbar from '../components/layout/Topbar';
+import TaskModal from '../components/modals/TaskModal';
 import { isOverdue, isDueToday, fmtDate, fmtRelative } from '../utils/helpers';
 import { AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { format, subDays, parseISO } from 'date-fns';
+import { format, subDays } from 'date-fns';
 
 export default function Dashboard() {
-  const { tasks, fetchTasks, fetchProjects, loading } = useTask();
+  const { tasks, projects, fetchTasks, fetchProjects, loading } = useTask();
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  // ── NEW TASK MODAL STATE ──────────────────────────────────────────
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editTask, setEditTask]   = useState(null);
+
   useEffect(() => { fetchTasks(); fetchProjects(); }, []);
+
+  // ── Listen for the "+ New Task" button fired from Topbar ─────────
+  useEffect(() => {
+    const h = () => { setEditTask(null); setModalOpen(true); };
+    document.addEventListener('open-task-modal', h);
+    return () => document.removeEventListener('open-task-modal', h);
+  }, []);
 
   const stats = useMemo(() => ({
     total:      tasks.length,
@@ -35,7 +48,7 @@ export default function Dashboard() {
     { name:'Low',    value:tasks.filter(t=>t.priority==='low').length,    color:'#10b981' },
   ],[tasks]);
 
-  const recent    = useMemo(()=>[...tasks].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,5),[tasks]);
+  const recent      = useMemo(()=>[...tasks].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,5),[tasks]);
   const overdueList = tasks.filter(isOverdue).slice(0,4);
 
   const greeting = ()=>{ const h=new Date().getHours(); return h<12?'Good morning':h<17?'Good afternoon':'Good evening'; };
@@ -125,7 +138,9 @@ export default function Dashboard() {
                 <button className="btn btn-ghost btn-sm" onClick={()=>navigate('/tasks')}>View all →</button>
               </div>
               {recent.map(task=>(
-                <div key={task.id} style={s.taskRow}>
+                <div key={task.id} style={s.taskRow}
+                  onClick={()=>{ setEditTask(task); setModalOpen(true); }}
+                  title="Click to edit">
                   <div style={{flex:1}}>
                     <div style={{fontSize:13.5,fontWeight:500}}>{task.title}</div>
                     <div style={{fontSize:11.5,color:'var(--text-4)',marginTop:2}}>{fmtRelative(task.created_at)}</div>
@@ -141,7 +156,8 @@ export default function Dashboard() {
               </h3>
               {overdueList.length===0 && <div style={s.emptyMsg}>You're all caught up! Great work. 🎉</div>}
               {overdueList.map(task=>(
-                <div key={task.id} style={{...s.taskRow,borderLeft:'3px solid var(--red)',paddingLeft:12}}>
+                <div key={task.id} style={{...s.taskRow,borderLeft:'3px solid var(--red)',paddingLeft:12,cursor:'pointer'}}
+                  onClick={()=>{ setEditTask(task); setModalOpen(true); }}>
                   <div style={{flex:1}}>
                     <div style={{fontSize:13.5,fontWeight:500}}>{task.title}</div>
                     <div style={{fontSize:11.5,color:'var(--red)',marginTop:2}}>Was due {fmtDate(task.deadline)}</div>
@@ -153,9 +169,19 @@ export default function Dashboard() {
           </div>
         </>)}
       </div>
+
+      {/* ── Task Modal — handles both create and edit ── */}
+      {modalOpen && (
+        <TaskModal
+          task={editTask}
+          projects={projects}
+          onClose={() => { setModalOpen(false); setEditTask(null); }}
+        />
+      )}
     </div>
   );
 }
+
 const s = {
   statsGrid:{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16, marginBottom:24 },
   chartsRow:{ display:'flex', gap:16, marginBottom:24, flexWrap:'wrap' },
@@ -163,6 +189,6 @@ const s = {
   chartTitle:{ fontSize:14.5, fontWeight:700, color:'var(--text-1)' },
   bottomRow:{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 },
   listCard:{ padding:'18px 20px' },
-  taskRow:{ display:'flex', alignItems:'center', gap:12, padding:'10px 0', borderBottom:'1px solid var(--border)' },
+  taskRow:{ display:'flex', alignItems:'center', gap:12, padding:'10px 0', borderBottom:'1px solid var(--border)', cursor:'pointer' },
   emptyMsg:{ textAlign:'center', color:'var(--text-4)', fontSize:13, padding:'24px 0' },
 };
