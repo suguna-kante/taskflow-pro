@@ -1,41 +1,41 @@
 # TaskFlow Pro
 
-A full-stack task management application built with **React**, **Node.js**, **Express.js**, **PostgreSQL**, and **Gemini AI**.
+A full-stack task management application built with **React**, **Node.js**, **Express.js**, **PostgreSQL**, and **Groq AI (Llama 3.3 70B)**.
 
 ---
 
 ## Tech Stack
 
-| Layer     | Technology                              |
-|-----------|-----------------------------------------|
-| Frontend  | React 18, React Router, Recharts, Axios |
-| Backend   | Node.js, Express.js                     |
-| Database  | PostgreSQL                              |
-| Auth      | JWT (access + refresh tokens)           |
-| AI        | Google Gemini API (gemini-1.5-flash)    |
+| Layer    | Technology                              |
+| -------- | --------------------------------------- |
+| Frontend | React 18, React Router, Recharts, Axios |
+| Backend  | Node.js, Express.js                     |
+| Database | PostgreSQL                              |
+| Auth     | JWT (access + refresh tokens)           |
+| AI       | Groq API (Llama 3.3 70B Versatile)      |
 
 ---
 
 ## AI Features
 
-| Feature               | How to use                                      |
-|-----------------------|-------------------------------------------------|
-| 🎯 Suggest Priority   | In task modal → click "🎯 AI" next to Priority  |
-| ✨ Improve Description| In task modal → click "✨ AI Improve"           |
-| 🔧 Task Breakdown     | Topbar → 🤖 AI → Breakdown tab                  |
-| 📊 Daily Summary      | Topbar → 🤖 AI → Daily Summary tab              |
-| 💬 AI Chat            | Topbar → 🤖 AI → Chat tab                       |
+| Feature               | How to use                                     |
+| --------------------- | ---------------------------------------------- |
+| 🎯 Suggest Priority   | In task modal → click "🎯 AI" next to Priority |
+| ✨ Improve Description | In task modal → click "✨ AI Improve"           |
+| 🔧 Task Breakdown     | Topbar → 🤖 AI → Breakdown tab                 |
+| 📊 Daily Summary      | Topbar → 🤖 AI → Daily Summary tab             |
+| 💬 AI Chat            | Topbar → 🤖 AI → Chat tab                      |
 
-> **Note:** AI features require a `GEMINI_API_KEY` in the backend `.env` file.  
-> Get one free at https://aistudio.google.com
+> **Note:** AI features require a `GROQ_API_KEY` in the backend `.env` file.
+> Get a free API key at **https://console.groq.com/keys**
 
 ---
 
 ## Prerequisites
 
-- Node.js v18+
-- PostgreSQL 14+
-- npm
+* Node.js v18+
+* PostgreSQL 14+
+* npm
 
 ---
 
@@ -43,7 +43,7 @@ A full-stack task management application built with **React**, **Node.js**, **Ex
 
 ### 1. Clone / Extract the project
 
-```
+```text
 taskflow-pro/
 ├── backend/
 └── frontend/
@@ -79,9 +79,13 @@ DB_USER=postgres
 DB_PASSWORD=your_postgres_password
 JWT_SECRET=any-long-random-string-here
 JWT_REFRESH_SECRET=another-long-random-string
-GEMINI_API_KEY=your_gemini_api_key_here    # Get from aistudio.google.com
+GROQ_API_KEY=your_groq_api_key_here
 CLIENT_URL=http://localhost:3000
 ```
+
+Get your API key from:
+
+https://console.groq.com/keys
 
 ---
 
@@ -93,20 +97,21 @@ npm install
 npm run migrate
 ```
 
-You should see: `✅  Migrations complete — all tables created.`
-
 ---
 
 ### 5. Start the backend server
 
 ```bash
-npm run dev       # development (auto-restart on changes)
+npm run dev
 # or
-npm start         # production
+npm start
 ```
 
-Backend runs at → http://localhost:5000  
-Health check → http://localhost:5000/health
+Backend → http://localhost:5000
+
+Health Check →
+
+http://localhost:5000/health
 
 ---
 
@@ -119,43 +124,43 @@ npm install
 npm start
 ```
 
-Frontend runs at → http://localhost:3000
+Frontend →
+
+http://localhost:3000
 
 ---
 
 ## Project Structure
 
-```
+```text
 backend/
 ├── src/
-│   ├── server.js                  # Express app entry point
+│   ├── server.js
 │   ├── db/
-│   │   ├── pool.js                # PostgreSQL connection pool
-│   │   └── migrate.js             # Run once to create tables
+│   │   ├── pool.js
+│   │   └── migrate.js
 │   ├── middleware/
-│   │   └── auth.js                # JWT authentication middleware
+│   │   └── auth.js
 │   ├── controllers/
-│   │   ├── authController.js      # Register, login, refresh, logout
-│   │   ├── userController.js      # Profile, change password
-│   │   ├── taskController.js      # Full task CRUD + stats + export
-│   │   ├── projectController.js   # Projects + comments
-│   │   └── aiController.js        # All AI features (Gemini)
+│   │   ├── authController.js
+│   │   ├── userController.js
+│   │   ├── taskController.js
+│   │   ├── projectController.js
+│   │   └── aiController.js        # All AI features (Groq)
 │   └── routes/
-│       └── index.js               # All API routes
+│       └── index.js
 └── .env.example
 
 frontend/
 ├── src/
-│   ├── api/taskAPI.js             # Axios API calls (incl. AI endpoints)
+│   ├── api/taskAPI.js
 │   ├── components/
-│   │   ├── ai/AIAssistant.jsx     # AI side panel (chat, priority, etc.)
-│   │   ├── kanban/                # Kanban board components
+│   │   ├── ai/AIAssistant.jsx
+│   │   ├── kanban/
 │   │   ├── layout/
-│   │   │   ├── Topbar.jsx         # Top bar with 🤖 AI button
-│   │   │   └── Sidebar.jsx        # Navigation sidebar
-│   │   └── modals/TaskModal.jsx   # Task form with inline AI buttons
-│   ├── context/                   # React contexts (Auth, Task, Theme)
-│   ├── pages/                     # Dashboard, Board, Tasks, etc.
+│   │   └── modals/TaskModal.jsx
+│   ├── context/
+│   ├── pages/
 │   └── styles/global.css
 └── .env.example
 ```
@@ -165,52 +170,86 @@ frontend/
 ## API Endpoints
 
 ### Auth
-```
+
+```text
 POST /api/auth/register
 POST /api/auth/login
-POST /api/auth/refresh/
+POST /api/auth/refresh
 POST /api/auth/logout
 ```
 
 ### Tasks
-```
-GET    /api/tasks          ?status=&priority=&project=&search=&ordering=
+
+```text
+GET    /api/tasks
 POST   /api/tasks
 GET    /api/tasks/:id
 PUT    /api/tasks/:id
 DELETE /api/tasks/:id
-PATCH  /api/tasks/:id/move     { status }
+PATCH  /api/tasks/:id/move
 GET    /api/tasks/stats
 GET    /api/tasks/overdue
-GET    /api/tasks/export       (downloads CSV)
+GET    /api/tasks/export
 ```
 
-### Projects & Comments
-```
+### Projects
+
+```text
 GET    /api/projects
 POST   /api/projects
 PUT    /api/projects/:id
 DELETE /api/projects/:id
+```
 
+### Comments
+
+```text
 GET    /api/tasks/:taskId/comments
 POST   /api/tasks/:taskId/comments
 DELETE /api/tasks/:taskId/comments/:commentId
 ```
 
-### AI (all require valid JWT)
-```
-POST /api/ai/suggest-priority       { title, description }
-POST /api/ai/breakdown              { title, description }
-POST /api/ai/improve-description    { title, description }
+### AI
+
+```text
+POST /api/ai/suggest-priority
+POST /api/ai/breakdown
+POST /api/ai/improve-description
 GET  /api/ai/daily-summary
-POST /api/ai/chat                   { message, context[] }
+POST /api/ai/chat
 ```
 
 ---
 
 ## Common Issues
 
-**"GEMINI_API_KEY not set"** → Add your key to `backend/.env`  
-**DB connection refused** → Make sure PostgreSQL is running and credentials match `.env`  
-**Port already in use** → Change `PORT=5000` in `.env` and update `REACT_APP_API_URL` in `frontend/.env`  
-**CORS errors** → Make sure `CLIENT_URL=http://localhost:3000` in backend `.env`
+**"GROQ_API_KEY not set"**
+
+→ Add your Groq API key to `backend/.env`
+
+**DB connection refused**
+
+→ Ensure PostgreSQL is running and the credentials in `.env` are correct.
+
+**Port already in use**
+
+→ Change `PORT=5000` in `backend/.env` and update the frontend API URL if needed.
+
+**CORS errors**
+
+→ Ensure:
+
+```env
+CLIENT_URL=http://localhost:3000
+```
+
+matches your frontend URL.
+
+---
+
+## AI Model
+
+* Provider: **Groq**
+* Model: **Llama 3.3 70B Versatile**
+* Free API Key: https://console.groq.com/keys
+* Fast inference for chat, task prioritization, summaries, and planning.
