@@ -63,7 +63,7 @@ export default function TaskModal({ task, initialStatus, onClose, projects=[] })
       set('priority', priority);
       setAiHint({ type: 'priority', text: `AI set priority to ${priority}: ${reason}${suggested_deadline_days ? ` (suggested: ${suggested_deadline_days} days)` : ''}` });
       toast.success(`AI suggested: ${priority} priority`);
-    } catch { toast.error('AI unavailable. Check ANTHROPIC_API_KEY in backend .env'); }
+    } catch { toast.error('AI unavailable. Check GROQ_API_KEY in backend .env'); }
     finally { setAiLoading(''); }
   };
 
@@ -76,7 +76,7 @@ export default function TaskModal({ task, initialStatus, onClose, projects=[] })
       set('description', r.data.improved_description);
       setAiHint({ type: 'improve', text: `Improved: ${r.data.changes_made}` });
       toast.success('Description improved!');
-    } catch { toast.error('AI unavailable. Check ANTHROPIC_API_KEY in backend .env'); }
+    } catch { toast.error('AI unavailable. Check GROQ_API_KEY in backend .env'); }
     finally { setAiLoading(''); }
   };
 

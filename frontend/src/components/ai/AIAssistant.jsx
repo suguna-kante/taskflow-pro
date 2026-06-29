@@ -39,7 +39,7 @@ export default function AIAssistant({ onClose }) {
       const r = await taskAPI.ai.chat({ message: msg, context: context.slice(0, -1) });
       setChatMsgs(h => [...h, { role: 'assistant', content: r.data.reply }]);
     } catch {
-      setChatMsgs(h => [...h, { role: 'assistant', content: '⚠️ Sorry, AI is unavailable. Make sure your ANTHROPIC_API_KEY is set in backend .env' }]);
+      setChatMsgs(h => [...h, { role: 'assistant', content: '⚠️ Sorry, AI is unavailable. Make sure your GEMINI_API_KEY is set in backend .env' }]);
     } finally { setSending(false); }
   };
 

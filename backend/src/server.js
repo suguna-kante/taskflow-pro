@@ -18,7 +18,7 @@ app.use(express.urlencoded({ extended: true }));
 // Rate limiting
 app.use('/api/auth', rateLimit({
   windowMs: 15 * 60 * 1000, // 15 min
-  max: 100,
+  max: 1000,
   message: { error: 'Too many requests. Try again later.' }
 }));
 
